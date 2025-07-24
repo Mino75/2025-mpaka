@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌴 mpaka - Extracteur de contenu 🦎</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1a0f0a">
+    <link rel="icon" href="/favicon.ico">
+    <style id="styles"></style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌴 mpaka 🦎</h1>
+            <p class="subtitle">Extracteur de contenu optimisé pour l'IA</p>
+        </header>
+        
+        <main>
+            <section class="input-section">
+                <div class="input-group">
+                    <input 
+                        type="url" 
+                        id="urlInput" 
+                        placeholder="https://example.com" 
+                        class="url-input"
+                        autocomplete="url"
+                    >
+                    <button id="fetchButton" class="fetch-button">
+                        <span class="button-text">🔍 Extraire</span>
+                        <span class="spinner"></span>
+                    </button>
+                </div>
+                <div id="errorMessage" class="error-message"></div>
+            </section>
+            
+            <section class="output-section">
+                <div class="output-header">
+                    <h2>📄 Contenu extrait</h2>
+                    <div class="output-actions">
+                        <span id="charCount" class="char-count">0 caractères</span>
+                        <button id="copyButton" class="action-button" title="Copier le contenu">
+                            📋 Copier
+                        </button>
+                        <button id="clearButton" class="action-button" title="Effacer tout">
+                            🗑️ Effacer
+                        </button>
+                    </div>
+                </div>
+                <textarea 
+                    id="outputContent" 
+                    class="output-content" 
+                    placeholder="Le contenu extrait apparaîtra ici..."
+                    spellcheck="false"
+                ></textarea>
+            </section>
+        </main>
+        
+        <footer>
+            <p>🌺 mpaka © 2025 - Madagascar 🇲🇬</p>
+        </footer>
+    </div>
+    
+    <div id="toast" class="toast"></div>
+    
+    <script src="/styles.js"></script>
+    <script src="/main.js"></script>
+</body>
+</html>
