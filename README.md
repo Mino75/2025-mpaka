@@ -187,13 +187,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Very large pages (>10MB) may timeout
 - Complex authentication-protected pages cannot be accessed
 
-## 🌟 Future Enhancements
-
-- [ ] Add support for more content types (PDF, DOC)
-- [ ] Implement request queuing
-- [ ] Add export formats (JSON, Markdown)
-- [ ] Support for custom extraction rules
-- [ ] Multi-language interface
 
 ## 👨‍💻 Author
 
