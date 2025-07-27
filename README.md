@@ -1,4 +1,4 @@
-# 🌴 mpaka -Content Extractor
+#  mpaka -Content Extractor
 
 A lightweight web application that extracts clean, structured text content from websites, optimized for AI indexing and processing. 
 
@@ -177,9 +177,6 @@ The application features a beautiful dark theme inspired by Madagascar:
 
 MIT License - See [LICENSE](LICENSE) file for details
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 🐛 Known Issues
 
@@ -188,8 +185,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - Complex authentication-protected pages cannot be accessed
 
 
-## 👨‍💻 Author
-
-Created with ❤️ by Mino
-
----
