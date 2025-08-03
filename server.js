@@ -64,6 +64,11 @@ const { URL } = require('url');
 const app = express();
 
 // Configuration
+// CACHE VERSION MANAGEMENT - Change this to deploy new version
+const CACHE_VERSION = process.env.CACHE_VERSION || 'v2';
+const APP_NAME = process.env.APP_NAME || 'mpaka';
+
+
 const PORT = process.env.PORT || 3000;
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
@@ -443,9 +448,7 @@ app.listen(PORT, () => {
 });
 
 
-// CACHE VERSION MANAGEMENT - Change this to deploy new version
-const CACHE_VERSION = process.env.CACHE_VERSION || 'v2';
-const APP_NAME = process.env.APP_NAME || 'yapishu';
+
 
 // Cache Lock Rescue - Intercept main.js to inject rescue code
 app.get('/main.js', (req, res) => {
