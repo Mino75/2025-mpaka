@@ -1,22 +1,4 @@
 
-
-
-// ----------------------------
-// Service Worker Registration
-// ----------------------------
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/service-worker.js').then(() => {
-    console.log('Service Worker Registered');
-  });
-  navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data.action === 'reload') {
-      console.log('New version available. Reloading...');
-      window.location.reload();
-    }
-  });
-}
-
-
 // main.js
 (function() {
     'use strict';
@@ -58,12 +40,12 @@ if ('serviceWorker' in navigator) {
         const url = urlInput.value.trim();
         
         if (!url) {
-            showError('Veuillez entrer une URL valide');
+            showError('Non valide entered URL');
             return;
         }
         
         if (!isValidUrl(url)) {
-            showError('L\'URL entrée n\'est pas valide');
+            showError('URL is not valid');
             return;
         }
         
@@ -89,15 +71,15 @@ if ('serviceWorker' in navigator) {
             
             if (data.success && data.content) {
                 appendContent(data.content);
-                showToast('Contenu extrait avec succès! 🎉', 'success');
+                showToast('Fetch success! 🎉', 'success');
                 urlInput.value = '';
             } else {
-                throw new Error(data.error || 'Erreur lors de l\'extraction du contenu');
+                throw new Error(data.error || 'Error during fetch');
             }
         } catch (error) {
             console.error('Fetch error:', error);
-            showError(error.message || 'Erreur lors de la récupération du contenu');
-            showToast('Erreur lors de l\'extraction 😕', 'error');
+            showError(error.message || 'Error during fetch');
+            showToast('Error during fetch 😕', 'error');
         } finally {
             setLoading(false);
         }
@@ -120,7 +102,7 @@ if ('serviceWorker' in navigator) {
     
     function handleCopy() {
         if (!outputContent.value.trim()) {
-            showToast('Aucun contenu à copier', 'error');
+            showToast('No content to copy', 'error');
             return;
         }
         
@@ -128,7 +110,7 @@ if ('serviceWorker' in navigator) {
         
         try {
             document.execCommand('copy');
-            showToast('Contenu copié! 📋', 'success');
+            showToast('Content Copied! 📋', 'success');
             
             // Deselect text on mobile
             if (window.getSelection) {
@@ -137,8 +119,8 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
             // Fallback for modern browsers
             navigator.clipboard.writeText(outputContent.value)
-                .then(() => showToast('Contenu copié! 📋', 'success'))
-                .catch(() => showToast('Erreur lors de la copie', 'error'));
+                .then(() => showToast('Content copied! 📋', 'success'))
+                .catch(() => showToast('Error during copy', 'error'));
         }
     }
     
@@ -147,7 +129,7 @@ if ('serviceWorker' in navigator) {
             return;
         }
         
-        if (confirm('Êtes-vous sûr de vouloir effacer tout le contenu?')) {
+        if (confirm('This will erase all content, Are you sure ?')) {
             outputContent.value = '';
             updateCharCount();
             showToast('Contenu effacé 🗑️', 'success');
@@ -198,23 +180,5 @@ if ('serviceWorker' in navigator) {
         }, 3000);
     }
     
-    // Service Worker Registration
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then(registration => {
-                    console.log('Service Worker registered:', registration);
-                    
-                    // Listen for updates
-                    navigator.serviceWorker.addEventListener('message', event => {
-                        if (event.data.action === 'reload') {
-                            window.location.reload();
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.log('Service Worker registration failed:', error);
-                });
-        });
-    }
+  
 })();
