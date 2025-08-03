@@ -68,7 +68,6 @@ const app = express();
 const CACHE_VERSION = process.env.CACHE_VERSION || 'v2';
 const APP_NAME = process.env.APP_NAME || 'mpaka';
 
-
 const PORT = process.env.PORT || 3000;
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
@@ -78,7 +77,6 @@ const BASIC_AUTH_PASS = process.env.BASIC_AUTH_PASS || 'fdhjfdh2025';
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(__dirname));
 
 // CORS middleware
 app.use((req, res, next) => {
@@ -131,11 +129,16 @@ function extractTextContent(html, baseUrl) {
     html = html.replace(/<img[^>]*>/gi, (match) => {
         const altMatch = match.match(/alt=["']([^"']*)["']/i);
         const srcMatch = match.match(/src=["']([^"']*)["']/i);
-        const alt = altMatch ? altMatch[1] : '';
-        const src = srcMatch ? srcMatch[1] : '';
+        const titleMatch = match.match(/title=["']([^"']*)["']/i);
         
-        if (alt || src) {
-            return `[IMAGE: ${alt || src}]`;
+        // Limit all fields to 200 characters
+        const alt = altMatch ? altMatch[1].substring(0, 200) : '';
+        const src = srcMatch ? srcMatch[1].substring(0, 200) : '';
+        const title = titleMatch ? titleMatch[1].substring(0, 200) : '';
+        
+        const description = alt || title || src;
+        if (description) {
+            return `[IMAGE: ${description}]`;
         }
         return '[IMAGE]';
     });
@@ -143,24 +146,44 @@ function extractTextContent(html, baseUrl) {
     // Extract and process videos
     html = html.replace(/<video[^>]*>[\s\S]*?<\/video>/gi, (match) => {
         const srcMatch = match.match(/src=["']([^"']*)["']/i);
-        const src = srcMatch ? srcMatch[1] : '';
-        return `[VIDEO: ${src || 'embedded video'}]`;
+        const titleMatch = match.match(/title=["']([^"']*)["']/i);
+        const posterMatch = match.match(/poster=["']([^"']*)["']/i);
+        
+        // Limit all fields to 200 characters
+        const src = srcMatch ? srcMatch[1].substring(0, 200) : '';
+        const title = titleMatch ? titleMatch[1].substring(0, 200) : '';
+        const poster = posterMatch ? posterMatch[1].substring(0, 200) : '';
+        
+        const description = title || src || poster || 'embedded video';
+        return `[VIDEO: ${description}]`;
     });
     
     // Extract and process audio
     html = html.replace(/<audio[^>]*>[\s\S]*?<\/audio>/gi, (match) => {
         const srcMatch = match.match(/src=["']([^"']*)["']/i);
-        const src = srcMatch ? srcMatch[1] : '';
-        return `[AUDIO: ${src || 'embedded audio'}]`;
+        const titleMatch = match.match(/title=["']([^"']*)["']/i);
+        
+        // Limit all fields to 200 characters
+        const src = srcMatch ? srcMatch[1].substring(0, 200) : '';
+        const title = titleMatch ? titleMatch[1].substring(0, 200) : '';
+        
+        const description = title || src || 'embedded audio';
+        return `[AUDIO: ${description}]`;
     });
     
     // Extract and process iframes
     html = html.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, (match) => {
         const srcMatch = match.match(/src=["']([^"']*)["']/i);
         const titleMatch = match.match(/title=["']([^"']*)["']/i);
-        const src = srcMatch ? srcMatch[1] : '';
-        const title = titleMatch ? titleMatch[1] : '';
-        return `[IFRAME: ${title || src || 'embedded content'}]`;
+        const nameMatch = match.match(/name=["']([^"']*)["']/i);
+        
+        // Limit all fields to 200 characters
+        const src = srcMatch ? srcMatch[1].substring(0, 200) : '';
+        const title = titleMatch ? titleMatch[1].substring(0, 200) : '';
+        const name = nameMatch ? nameMatch[1].substring(0, 200) : '';
+        
+        const description = title || name || src || 'embedded content';
+        return `[IFRAME: ${description}]`;
     });
     
     // Extract title
@@ -414,42 +437,6 @@ async function fetchUrl(url, redirectCount = 0) {
     });
 }
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'ok', 
-        service: 'mpaka',
-        timestamp: new Date().toISOString() 
-    });
-});
-
-// Main route
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Server error:', err);
-    res.status(500).json({ 
-        error: 'Internal server error'
-    });
-});
-
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ error: 'Not found' });
-});
-
-// Start server
-app.listen(PORT, () => {
-    console.log(`🌴 mpaka server running at http://localhost:${PORT}`);
-    console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
-});
-
-
-
-
 // Cache Lock Rescue - Intercept main.js to inject rescue code
 app.get('/main.js', (req, res) => {
   try {
@@ -528,13 +515,38 @@ self.SW_ENABLE_LOGS = '${process.env.SW_ENABLE_LOGS || 'true'}';
   }
 });
 
+// Serve static files
 app.use(express.static(__dirname));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        service: 'mpaka',
+        timestamp: new Date().toISOString() 
+    });
 });
 
-const PORT = process.env.PORT || 3000;
+// Main route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Server error:', err);
+    res.status(500).json({ 
+        error: 'Internal server error'
+    });
+});
+
+// 404 handler
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found' });
+});
+
+// Start server
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`🌴 mpaka server running at http://localhost:${PORT}`);
+    console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
 });
