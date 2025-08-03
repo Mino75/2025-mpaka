@@ -1,3 +1,58 @@
+/**
+ *  CACHE STRATEGY REQUIREMENTS
+ * ===================================
+ * 
+ * GOAL: "Get once, always work, update if possible"
+ * 
+ * CONTEXT: Adapt to Network conditions 
+ * - Very slow network connections in some areas
+ * - Network can cut at any moment during fetch
+ * - Users need reliable offline experience
+ * - This is a microservice - all cached  declaredfiles are critical
+ * 
+ * STRATEGY: Adaptive Network-First with Smart Timeouts
+ * 
+ * 1. FIRST FETCH (New User / No Cache)
+ *    - HIGH TIMEOUT (20-30 seconds)
+ *    - Purpose: Ensure we get a complete working version cached
+ *    - Behavior: Wait longer to accommodate slow networks
+ *    - Fallback: If timeout/failure, show error (no cache available)
+ * 
+ * 2. SUBSEQUENT FETCHES (Returning User / Has Cache)
+ *    - SHORT TIMEOUT (3-5 seconds)
+ *    - Purpose: Don't block user experience while trying to update
+ *    - Behavior: Quick network attempt, fast fallback to cache
+ *    - Fallback: Serve cached version immediately on timeout/failure
+ * 
+ * 3. NETWORK FAILURE HANDLING
+ *    - Any network timeout or connection cut -> serve from cache
+ *    - Cache always serves the last working version
+ *    - No partial updates - either complete success or use cache
+ * 
+ * 4. CRITICAL FILES POLICY
+ *    - ALL manifest files are critical (no optional resources)
+ *    - Failed fetch on any critical file = fallback to cached version
+ *    - Never serve a mix of new/old files (consistency requirement)
+ * 
+ * 5. CACHE MANAGEMENT
+ *    - Complete atomic updates only (all files or none)
+ *    - Old cache versions must be cleaned up properly
+ *    - Cache corruption protection (verify all files present)
+ * 
+ * 6. USER EXPERIENCE PRIORITIES
+ *    - Reliability > Speed (app must always work)
+ *    - Offline capability is essential
+ *    - Background updates when possible, no blocking
+ *    - Clear feedback when updates are available
+ * 
+ * IMPLEMENTATION NOTES:
+ * - Detect first-time vs returning users by cache presence
+ * - Use different timeout strategies to adapt to worst and best conditions (what can do more can do less)
+ * - Implement proper service worker lifecycle management
+ * - Ensure cache consistency and cleanup
+ * - Handle challenging network conditions gracefully
+ */
+
 // server.js
 const express = require('express');
 const path = require('path');
