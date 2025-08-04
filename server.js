@@ -57,6 +57,10 @@
  * Fixes 403 Forbidden errors by implementing multiple evasion strategies
  */
 
+/**
+ * Simplified server.js with Playwright fallback for failed requests
+ */
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -64,6 +68,7 @@ const http = require('http');
 const https = require('https');
 const { URL } = require('url');
 const zlib = require('zlib');
+const { chromium, firefox } = require('playwright');
 
 const app = express();
 
@@ -78,86 +83,22 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
 const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER || 'mpaka';
 const BASIC_AUTH_PASS = process.env.BASIC_AUTH_PASS || 'fdhjfdh2025';
 
-// Enhanced User Agent Pool - Rotate through different browsers
-const USER_AGENTS = [
-    // Chrome Windows
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
-    
-    // Firefox Windows
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0',
-    
-    // Chrome Mac
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-    
-    // Firefox Mac
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:132.0) Gecko/20100101 Firefox/132.0',
-    
-    // Safari Mac
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1.1 Safari/605.1.15',
-    
-    // Edge Windows
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0'
-];
+// Single user agent for simple fetch
+const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-// Get random user agent
-function getRandomUserAgent() {
-    return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-}
-
-// Get comprehensive headers that match the user agent
-function getEnhancedHeaders(userAgent, url) {
+// Get basic headers
+function getBasicHeaders(url) {
     const parsedUrl = new URL(url);
     const isHttps = parsedUrl.protocol === 'https:';
     
-    // Base headers that all browsers send
-    const baseHeaders = {
-        'User-Agent': userAgent,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
+    return {
+        'User-Agent': DEFAULT_USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate' + (isHttps ? ', br' : ''),
-        'DNT': '1',
         'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Cache-Control': 'max-age=0'
+        'Upgrade-Insecure-Requests': '1'
     };
-    
-    // Add browser-specific headers
-    if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
-        baseHeaders['sec-ch-ua'] = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"';
-        baseHeaders['sec-ch-ua-mobile'] = '?0';
-        baseHeaders['sec-ch-ua-platform'] = userAgent.includes('Windows') ? '"Windows"' : '"macOS"';
-    } else if (userAgent.includes('Firefox')) {
-        // Firefox doesn't send sec-ch-ua headers
-        delete baseHeaders['Sec-Fetch-Dest'];
-        delete baseHeaders['Sec-Fetch-Mode'];
-        delete baseHeaders['Sec-Fetch-Site'];
-        delete baseHeaders['Sec-Fetch-User'];
-    } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
-        // Safari has different sec-fetch headers
-        baseHeaders['Sec-Fetch-Site'] = 'same-origin';
-    } else if (userAgent.includes('Edg')) {
-        baseHeaders['sec-ch-ua'] = '"Microsoft Edge";v="131", "Chromium";v="131", "Not_A Brand";v="24"';
-        baseHeaders['sec-ch-ua-mobile'] = '?0';
-        baseHeaders['sec-ch-ua-platform'] = '"Windows"';
-    }
-    
-    return baseHeaders;
-}
-
-// Add random delays to mimic human behavior
-function randomDelay() {
-    return new Promise(resolve => {
-        const delay = Math.random() * 2000 + 500; // 500ms to 2.5s
-        setTimeout(resolve, delay);
-    });
 }
 
 // Middleware
@@ -342,54 +283,12 @@ function resolveUrl(url, base) {
     }
 }
 
-// Enhanced fetch function with multiple retry strategies
-async function enhancedFetch(url, maxRetries = 3) {
-    let lastError;
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            console.log(`Attempt ${attempt}/${maxRetries} for ${url}`);
-            
-            // Add random delay between retries (except first attempt)
-            if (attempt > 1) {
-                await randomDelay();
-            }
-            
-            // Get fresh user agent and headers for each attempt
-            const userAgent = getRandomUserAgent();
-            const headers = getEnhancedHeaders(userAgent, url);
-            
-            console.log(`Using User-Agent: ${userAgent.substring(0, 50)}...`);
-            
-            const content = await fetchWithHeaders(url, headers);
-            console.log(`✅ Success on attempt ${attempt} for ${url}`);
-            return content;
-            
-        } catch (error) {
-            lastError = error;
-            console.log(`❌ Attempt ${attempt} failed for ${url}: ${error.message}`);
-            
-            // If it's a 403, try different strategies
-            if (error.message.includes('403') && attempt < maxRetries) {
-                console.log(`🔄 Retrying with different strategy...`);
-                continue;
-            }
-            
-            // If it's not 403 or last attempt, break
-            if (!error.message.includes('403') || attempt === maxRetries) {
-                break;
-            }
-        }
-    }
-    
-    throw lastError;
-}
-
-// Fetch function with enhanced headers
-async function fetchWithHeaders(url, headers) {
+// Simple fetch function
+async function simpleFetch(url) {
     return new Promise((resolve, reject) => {
         const parsedUrl = new URL(url);
         const client = parsedUrl.protocol === 'https:' ? https : http;
+        const headers = getBasicHeaders(url);
         
         const options = {
             hostname: parsedUrl.hostname,
@@ -397,7 +296,7 @@ async function fetchWithHeaders(url, headers) {
             path: parsedUrl.pathname + parsedUrl.search,
             method: 'GET',
             headers: headers,
-            timeout: 30000
+            timeout: 15000
         };
         
         const request = client.request(options, (response) => {
@@ -407,7 +306,7 @@ async function fetchWithHeaders(url, headers) {
             if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                 const redirectUrl = resolveUrl(response.headers.location, url);
                 console.log(`🔀 Redirecting to: ${redirectUrl}`);
-                return resolve(fetchWithHeaders(redirectUrl, headers));
+                return resolve(simpleFetch(redirectUrl));
             }
             
             if (response.statusCode !== 200) {
@@ -453,7 +352,84 @@ async function fetchWithHeaders(url, headers) {
     });
 }
 
-// Enhanced API endpoint with anti-bot measures
+// Playwright fallback function
+async function playwrightFetch(url) {
+    console.log('🎭 Starting Playwright fallback...');
+    
+    // Randomly choose between chromium and firefox
+    const browsers = [chromium, firefox];
+    const selectedBrowser = browsers[Math.floor(Math.random() * browsers.length)];
+    const browserName = selectedBrowser === chromium ? 'Chromium' : 'Firefox';
+    
+    console.log(`🎭 Using ${browserName} for ${url}`);
+    
+    let browser, page;
+    
+    try {
+        browser = await selectedBrowser.launch({
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
+            ]
+        });
+        
+        page = await browser.newPage();
+        
+        // Set a reasonable viewport
+        await page.setViewportSize({ width: 1280, height: 720 });
+        
+        // Navigate to the page with timeout
+        await page.goto(url, { 
+            waitUntil: 'domcontentloaded',
+            timeout: 30000 
+        });
+        
+        // Wait a bit for dynamic content to load
+        await page.waitForTimeout(2000);
+        
+        // Get the HTML content
+        const html = await page.content();
+        
+        console.log(`✅ ${browserName} successfully fetched content from ${url}`);
+        return html;
+        
+    } catch (error) {
+        console.error(`❌ ${browserName} failed for ${url}:`, error.message);
+        throw error;
+    } finally {
+        if (page) await page.close().catch(() => {});
+        if (browser) await browser.close().catch(() => {});
+    }
+}
+
+// Main fetch function with Playwright fallback
+async function fetchWithFallback(url) {
+    try {
+        console.log(`🌐 Trying simple fetch for: ${url}`);
+        const content = await simpleFetch(url);
+        console.log(`✅ Simple fetch succeeded for: ${url}`);
+        return content;
+    } catch (error) {
+        console.log(`❌ Simple fetch failed for ${url}: ${error.message}`);
+        console.log(`🎭 Falling back to Playwright...`);
+        
+        try {
+            const content = await playwrightFetch(url);
+            return content;
+        } catch (playwrightError) {
+            console.error(`❌ Playwright also failed for ${url}: ${playwrightError.message}`);
+            throw new Error(`Both simple fetch and browser failed: ${error.message} | ${playwrightError.message}`);
+        }
+    }
+}
+
+// API endpoint with simplified fetch strategy
 app.post('/api/extract', basicAuth, async (req, res) => {
     const { url } = req.body;
     
@@ -470,8 +446,8 @@ app.post('/api/extract', basicAuth, async (req, res) => {
         
         console.log(`🚀 Starting extraction for: ${url}`);
         
-        // Use enhanced fetch with multiple retry strategies
-        const content = await enhancedFetch(url);
+        // Use simplified fetch with Playwright fallback
+        const content = await fetchWithFallback(url);
         
         // Extract text content
         const extractedContent = extractTextContent(content, url);
@@ -489,10 +465,7 @@ app.post('/api/extract', basicAuth, async (req, res) => {
         console.error(`❌ Extraction error for ${url}:`, error);
         res.status(500).json({ 
             error: error.message || 'Failed to extract content',
-            url: url,
-            suggestion: error.message.includes('403') 
-                ? 'The website is blocking automated requests. This is common for sites with anti-bot protection.'
-                : 'Check if the URL is accessible and try again.'
+            url: url
         });
     }
 });
@@ -600,5 +573,5 @@ app.use((req, res) => {
 app.listen(PORT, () => {
     console.log(`🌴 mpaka server running at http://localhost:${PORT}`);
     console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
-    console.log(`🤖 Anti-bot measures enabled with ${USER_AGENTS.length} user agents`);
+    console.log(`🎭 Playwright fallback enabled`);
 });
