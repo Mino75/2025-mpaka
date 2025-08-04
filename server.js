@@ -446,18 +446,39 @@ app.post('/api/extract', basicAuth, async (req, res) => {
         
         console.log(`🚀 Starting extraction for: ${url}`);
         
-        // Use simplified fetch with Playwright fallback
-        const content = await fetchWithFallback(url);
+        // Track extraction method
+        let extractionMethod = 'unknown';
+        let content;
+        
+        try {
+            console.log(`🌐 Trying simple fetch for: ${url}`);
+            content = await simpleFetch(url);
+            extractionMethod = 'http';
+            console.log(`✅ Simple fetch succeeded for: ${url}`);
+        } catch (error) {
+            console.log(`❌ Simple fetch failed for ${url}: ${error.message}`);
+            console.log(`🎭 Falling back to Playwright...`);
+            
+            try {
+                content = await playwrightFetch(url);
+                extractionMethod = 'browser';
+                console.log(`✅ Playwright succeeded for: ${url}`);
+            } catch (playwrightError) {
+                console.error(`❌ Playwright also failed for ${url}: ${playwrightError.message}`);
+                throw new Error(`Both simple fetch and browser failed: ${error.message} | ${playwrightError.message}`);
+            }
+        }
         
         // Extract text content
         const extractedContent = extractTextContent(content, url);
         
-        console.log(`✅ Successfully extracted content from: ${url}`);
+        console.log(`✅ Successfully extracted content from: ${url} via ${extractionMethod}`);
         
         res.json({
             success: true,
             content: extractedContent,
             url: url,
+            method: extractionMethod, // Add this line
             timestamp: new Date().toISOString()
         });
         
