@@ -1,5 +1,4 @@
-
-// main.js
+// main.js - Simplified version
 (function() {
     'use strict';
     
@@ -40,7 +39,7 @@
         const url = urlInput.value.trim();
         
         if (!url) {
-            showError('Non valide entered URL');
+            showError('Please enter a valid URL');
             return;
         }
         
@@ -53,33 +52,45 @@
         hideError();
         
         try {
+            // Single fetch attempt with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for potential Playwright usage
+            
             const response = await fetch(API_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': 'Basic ' + btoa('mpaka:fdhjfdh2025')
                 },
-                body: JSON.stringify({ url })
+                body: JSON.stringify({ url }),
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.error || `Erreur HTTP: ${response.status}`);
+                throw new Error(error.error || `HTTP Error: ${response.status}`);
             }
             
             const data = await response.json();
             
             if (data.success && data.content) {
                 appendContent(data.content);
-                showToast('Fetch success! 🎉', 'success');
+                showToast('Content extracted successfully! 🎉', 'success');
                 urlInput.value = '';
             } else {
-                throw new Error(data.error || 'Error during fetch');
+                throw new Error(data.error || 'Error during extraction');
             }
         } catch (error) {
             console.error('Fetch error:', error);
-            showError(error.message || 'Error during fetch');
-            showToast('Error during fetch 😕', 'error');
+            if (error.name === 'AbortError') {
+                showError('Request timeout - the server took too long to respond');
+                showToast('Request timeout 😕', 'error');
+            } else {
+                showError(error.message || 'Error during extraction');
+                showToast('Extraction failed 😕', 'error');
+            }
         } finally {
             setLoading(false);
         }
@@ -110,7 +121,7 @@
         
         try {
             document.execCommand('copy');
-            showToast('Content Copied! 📋', 'success');
+            showToast('Content copied! 📋', 'success');
             
             // Deselect text on mobile
             if (window.getSelection) {
@@ -129,16 +140,16 @@
             return;
         }
         
-        if (confirm('This will erase all content, Are you sure ?')) {
+        if (confirm('This will erase all content. Are you sure?')) {
             outputContent.value = '';
             updateCharCount();
-            showToast('Contenu effacé 🗑️', 'success');
+            showToast('Content cleared 🗑️', 'success');
         }
     }
     
     function updateCharCount() {
         const count = outputContent.value.length;
-        charCount.textContent = `${count.toLocaleString()} caractères`;
+        charCount.textContent = `${count.toLocaleString()} characters`;
     }
     
     function isValidUrl(string) {
@@ -179,6 +190,4 @@
             toast.classList.remove('show');
         }, 3000);
     }
-    
-  
 })();
