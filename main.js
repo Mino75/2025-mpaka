@@ -35,67 +35,74 @@
     updateCharCount();
     
     // Functions
-    async function handleFetch() {
-        const url = urlInput.value.trim();
-        
-        if (!url) {
-            showError('Please enter a valid URL');
-            return;
-        }
-        
-        if (!isValidUrl(url)) {
-            showError('URL is not valid');
-            return;
-        }
-        
-        setLoading(true);
-        hideError();
-        
-        try {
-            // Single fetch attempt with timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for potential Playwright usage
-            
-            const response = await fetch(API_ENDPOINT, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Basic ' + btoa('mpaka:fdhjfdh2025')
-                },
-                body: JSON.stringify({ url }),
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || `HTTP Error: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.success && data.content) {
-                appendContent(data.content);
-                showToast('Content extracted successfully! 🎉', 'success');
-                urlInput.value = '';
-            } else {
-                throw new Error(data.error || 'Error during extraction');
-            }
-        } catch (error) {
-            console.error('Fetch error:', error);
-            if (error.name === 'AbortError') {
-                showError('Request timeout - the server took too long to respond');
-                showToast('Request timeout 😕', 'error');
-            } else {
-                showError(error.message || 'Error during extraction');
-                showToast('Extraction failed 😕', 'error');
-            }
-        } finally {
-            setLoading(false);
-        }
+async function handleFetch() {
+    const url = urlInput.value.trim();
+    
+    if (!url) {
+        showError('Please enter a valid URL');
+        return;
     }
     
+    if (!isValidUrl(url)) {
+        showError('URL is not valid');
+        return;
+    }
+    
+    setLoading(true);
+    hideError();
+    
+    try {
+        // Single fetch attempt with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for potential Playwright usage
+        
+        const response = await fetch(API_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + btoa('mpaka:fdhjfdh2025')
+            },
+            body: JSON.stringify({ url }),
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || `HTTP Error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.content) {
+            appendContent(data.content);
+            
+            // Show success message with extraction method
+            const methodIcon = data.method === 'http' ? '🌐' : '🎭';
+            const methodText = data.method === 'http' ? 'HTTP fetch' : 'Browser fallback';
+            showToast(`Content extracted via ${methodText}! ${methodIcon}`, 'success');
+            
+            urlInput.value = '';
+        } else {
+            throw new Error(data.error || 'Error during extraction');
+        }
+    } catch (error) {
+        console.error('Fetch error:', error);
+        if (error.name === 'AbortError') {
+            showError('Request timeout - the server took too long to respond');
+            showToast('Request timeout 😕', 'error');
+        } else {
+            showError(error.message || 'Error during extraction');
+            showToast('Extraction failed 😕', 'error');
+        }
+    } finally {
+        setLoading(false);
+    }
+}
+
+
+// append conetent
     function appendContent(newContent) {
         const currentContent = outputContent.value.trim();
         
